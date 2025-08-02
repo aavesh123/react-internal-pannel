@@ -1,3 +1,37 @@
+@flag-panel-directory-layout:
+  description: Flag Resolution Panel using React + Refine + Ant Design
+  framework: react
+  ui_library: antd
+  data_library: axios
+  routing: refine
+
+  pages:
+    - name: FlagPanel
+      path: /flag-panel
+      layout: true
+      component: pages/flag-panel/index.tsx
+
+  files:
+    - path: src/pages/flag-panel/index.tsx
+      description: Main Flag Panel page
+      type: page
+    - path: src/pages/flag-panel/modals/LostModal.tsx
+      description: Modal to resolve LOST flag
+    - path: src/pages/flag-panel/modals/ExcessModal.tsx
+      description: Modal to resolve EXCESS flag
+    - path: src/pages/flag-panel/modals/DamagedModal.tsx
+      description: Modal to resolve DAMAGED flag
+    - path: src/pages/flag-panel/modals/BatchDiscrepancyModal.tsx
+      description: Modal to resolve BATCH_DISCREPANCY flag
+    - path: src/pages/flag-panel/modals/SkuMismatchModal.tsx
+      description: Modal to resolve SKU_MISMATCH flag
+    - path: src/pages/flag-panel/modals/RejectModal.tsx
+      description: Modal to reject any flag with reason
+    - path: src/pages/flag-panel/types.ts
+      description: Type definitions for flag data and resolution payloads
+    - path: src/pages/flag-panel/utils.ts
+      description: Formatters and helper functions for the flag panel
+
 @flag-panel:
   description: Flag Resolution Panel — React + Refine + Ant Design App
   framework: react
