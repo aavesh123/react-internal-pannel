@@ -1,0 +1,148 @@
+@flag-panel:
+  description: Supervisor Flag Resolution Panel for DC Audit
+  source: Flag_Panel_Final_UI.html
+  inputs:
+    - id: filter-flag-type
+      label: Flag Type
+      type: select
+      options: [EXCESS, LOST, DAMAGED, BATCH_DISCREPANCY, SKU_MISMATCH]
+      optional: true
+
+    - id: filter-status
+      label: Flag Status
+      type: select
+      options: [PENDING, RESOLVED, REJECTED]
+      optional: true
+
+    - id: filter-id
+      label: Crate ID / WT ID
+      type: text
+      optional: true
+
+    - id: filter-date
+      label: Date
+      type: date
+      optional: true
+
+  tasks:
+    - id: fetchFlags
+      trigger: button[text()='Filter']
+      api:
+        method: GET
+        url: /audit/flags
+        query:
+          type: $inputs.filter-flag-type
+          status: $inputs.filter-status
+          crateId: $inputs.filter-id
+          timeStart: $inputs.filter-date
+
+    - id: rejectFlag
+      trigger: button[text()='Confirm Rejection']
+      api:
+        method: POST
+        url: /audit/flags/reject
+        body:
+          flagId: $state.currentFlagId
+          reason: $inputs.reject-reason
+        validate:
+          - field: reject-reason
+            rule: required
+            message: Rejection reason is mandatory
+
+    - id: resolveLost
+      trigger: button[text*='Lost GON']
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+
+    - id: resolveExcess
+      trigger: button[id='excess-approve-button']
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          quantity: $inputs.modal-qty
+
+    - id: checkRecoveryGon
+      trigger: button[text*='Check for Recovery GON']
+      api:
+        method: POST
+        url: /audit/recovery-gon
+        body:
+          flag_id: $state.currentFlagId
+
+    - id: resolveDamaged
+      trigger: button[id='damaged-approve-btn']
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          reasons: $inputs.damage-reasons
+        validate:
+          - rule: sumEquals
+            args:
+              totalField: damaged-qty-total
+            message: Quantity breakdown must match total damaged quantity
+
+    - id: resolveBatchDiscrepancy
+      trigger: button[text()='Submit']
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          batchResolution:
+            type: CREATE
+            newBatchId: $inputs.batch-id-to-create
+            mfgDate: $inputs.new-batch-mfg
+            expiryDate: $inputs.new-batch-exp
+        validate:
+          - fields: [batch-id-to-create, new-batch-mfg, new-batch-exp]
+            rule: required
+            message: All batch fields are mandatory
+
+    - id: resolveSkuMismatch
+      trigger: button[text*='Approve SKU Updation']
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          product_sku: $inputs.actual-sku
+          batch_id: $inputs.actual-batch-id
+        validate:
+          - field: actual-sku
+            rule: required
+            message: Actual SKU is mandatory
+
+  views:
+    - id: flags-table
+      type: table
+      target: tbody#flags-table-body
+      data: $tasks.fetchFlags.response.data.flags
+      columns:
+        - Flag ID: id
+        - Type: type
+        - Identifier: identifier
+        - SKU: sku
+        - Details: details
+        - Date: date
+        - Status: status
+        - Actions: dynamic
+
+  state:
+    - currentFlagId
+
+  validationRules:
+    - name: sumEquals
+      args:
+        totalField: damaged-qty-total
+      function: |
+        (reasons, args, context) => {
+          const sum = reasons.reduce((a, r) => a + (parseInt(r.quantity) || 0), 0);
+          return sum === parseInt(context.inputs[args.totalField]);
+        }
