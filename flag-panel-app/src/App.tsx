@@ -32,6 +32,7 @@ import {
   CategoryList,
   CategoryShow,
 } from "./pages/categories";
+import { FlagPanelDemo } from "./pages/flag-panel-demo";
 
 function App() {
   return (
@@ -64,6 +65,13 @@ function App() {
                     show: "/categories/show/:id",
                     meta: {
                       canDelete: true,
+                    },
+                  },
+                  {
+                    name: "flag_panel",
+                    list: "/flag-panel",
+                    meta: {
+                      canDelete: false,
                     },
                   },
                 ]}
@@ -101,6 +109,7 @@ function App() {
                       <Route path="edit/:id" element={<CategoryEdit />} />
                       <Route path="show/:id" element={<CategoryShow />} />
                     </Route>
+                    <Route path="/flag-panel" element={<FlagPanelDemo />} />
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>
                 </Routes>
