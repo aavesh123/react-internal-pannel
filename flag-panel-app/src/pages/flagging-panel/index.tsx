@@ -59,6 +59,11 @@ const FlaggingPanel: React.FC = () => {
       const response = await getFlags(filters);
       if (response.status === 'success') {
         setFlags(response.data.flags || []);
+        
+        // Show notification if using dummy data
+        if (response.message.includes('dummy data')) {
+          showToast('warning', 'Using demo data - API unavailable');
+        }
       } else {
         showToast('error', response.message || 'Failed to fetch flags');
       }

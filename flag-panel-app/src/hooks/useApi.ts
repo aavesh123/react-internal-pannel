@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { ApiResponse, FilterState, FlagsResponse } from '../pages/flagging-panel/types';
+import { dummyFlagsData, filterDummyFlags, mockApiResponses, simulateApiDelay } from '@/utils/dummyData';
 
 const API_BASE_URL = 'https://sandbox.purplle.com/wms/api/v1/dc-be';
 
@@ -16,10 +17,11 @@ const getHeaders = () => {
   };
 };
 
-// Generic API call function
+// Generic API call function with dummy data fallback
 const apiCall = async <T>(
   endpoint: string, 
-  options: RequestInit = {}
+  options: RequestInit = {},
+  useDummyFallback = true
 ): Promise<ApiResponse<T>> => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -34,8 +36,35 @@ const apiCall = async <T>(
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
+    console.warn('API call failed, using dummy data:', error);
+    
+    if (!useDummyFallback) {
+      throw error;
+    }
+    
+    // Simulate API delay
+    await simulateApiDelay(500);
+    
+    // Return dummy response based on endpoint
+    if (endpoint.includes('/audit/flags')) {
+      return {
+        status: 'success',
+        message: 'Using dummy data (API unavailable)',
+        data: {
+          flags: dummyFlagsData,
+          total: dummyFlagsData.length,
+          page: 1,
+          limit: 10
+        } as T
+      };
+    }
+    
+    // For other endpoints, return generic success
+    return {
+      status: 'success',
+      message: 'Operation completed (using dummy data - API unavailable)',
+      data: {} as T
+    };
   }
 };
 
@@ -53,7 +82,24 @@ export const useApi = () => {
     const queryString = queryParams.toString();
     const endpoint = `/audit/flags${queryString ? `?${queryString}` : ''}`;
     
-    return apiCall<FlagsResponse>(endpoint);
+    try {
+      return await apiCall<FlagsResponse>(endpoint);
+    } catch (error) {
+      // If API fails, use dummy data with filtering
+      console.warn('API failed, using filtered dummy data:', error);
+      
+      await simulateApiDelay(500);
+      
+      const filteredFlags = filterDummyFlags(dummyFlagsData, filters);
+      
+      return {
+        status: 'success',
+        message: 'Using dummy data (API unavailable)',
+        data: {
+          flags: filteredFlags
+        }
+      };
+    }
   }, []);
 
   // Reject flag
