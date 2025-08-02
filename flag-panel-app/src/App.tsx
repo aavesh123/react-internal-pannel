@@ -33,6 +33,7 @@ import {
   CategoryShow,
 } from "./pages/categories";
 import { FlagPanelDemo } from "./pages/flag-panel-demo";
+import { AuditPanel } from "./pages/audit-panel";
 
 function App() {
   return (
@@ -74,6 +75,13 @@ function App() {
                       canDelete: false,
                     },
                   },
+                  {
+                    name: "audit_panel",
+                    list: "/audit-panel",
+                    meta: {
+                      canDelete: false,
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -110,6 +118,7 @@ function App() {
                       <Route path="show/:id" element={<CategoryShow />} />
                     </Route>
                     <Route path="/flag-panel" element={<FlagPanelDemo />} />
+                    <Route path="/audit-panel" element={<AuditPanel />} />
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>
                 </Routes>
