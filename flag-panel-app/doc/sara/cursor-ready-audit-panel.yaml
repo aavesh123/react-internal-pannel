@@ -1,0 +1,613 @@
+# 🛠️ DC Audit Panel - Cursor-Ready YAML Configuration
+# Generated from Technical Doc + HTML File + API Doc
+# Version: 1.0.0
+
+project:
+  name: "DC Audit Panel"
+  description: "Comprehensive audit workflow management system with B2C, STO, Discrepancy, and Finalization flows"
+  version: "1.0.0"
+  framework: "React + TypeScript"
+  ui_library: "Custom UI Components"
+
+# 📋 Core Components Configuration
+components:
+  assignment_panel:
+    type: "@datatable-panel"
+    resource: "audit/work-tasks"
+    description: "Supervisor assignment panel for audit tasks"
+    ui_references:
+      html_file: "Flag_Panel_Final_UI.html"
+      table_columns: ["id", "createdAt[Date]", "status[Badge]", "assignedToName"]
+      modal_fields: ["workOrders[List]", "rackName"]
+      toast_handling: "all"
+    
+    api_integration:
+      endpoints:
+        - method: "GET"
+          path: "/audit/work-tasks"
+          description: "Fetch all available audit tasks"
+          headers: ["user_id", "warehouse_id"]
+          query_params:
+            - name: "status"
+              type: "string"
+              required: false
+              options: ["CREATED", "ASSIGNED", "IN_PROGRESS", "COMPLETED"]
+            - name: "assigned_to"
+              type: "string"
+              required: false
+          response_structure:
+            status: "string"
+            message: "string"
+            data:
+              workTasks: "Array<WorkTask>"
+              auditors: "Array<Auditor>"
+        
+        - method: "POST"
+          path: "/audit/assign-task"
+          description: "Assign audit task to auditor"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            work_task_id: "number"
+            auditor_id: "number"
+          validation:
+            max_tasks_per_auditor: "Read from ext_config table"
+            error_cases:
+              - "Auditor already has maximum tasks assigned"
+              - "Task already assigned"
+    
+    flows:
+      - name: "View Available Tasks"
+        description: "Display all audit tasks with status badges"
+        ui_actions:
+          - "Load tasks on component mount"
+          - "Display status badges (CREATED, ASSIGNED, IN_PROGRESS)"
+          - "Show work orders count per task"
+        
+      - name: "View Work Orders"
+        description: "Open modal showing nested work orders list"
+        ui_actions:
+          - "Click 'View Work Orders' button"
+          - "Open readonly modal"
+          - "Display workOrders array with rackName"
+        cursor_tag: "@modal-form mode: readonly"
+        
+      - name: "Assign Task to Auditor"
+        description: "Assign task via dropdown + confirmation"
+        ui_actions:
+          - "Select auditor from dropdown"
+          - "Show confirmation modal"
+          - "Submit assignment"
+          - "Show success/error toast"
+        validation:
+          - "Auditor must be selected"
+          - "Check max tasks per auditor limit"
+        error_handling:
+          - "Toast: 'Failed to fetch work orders'"
+          - "Toast: 'Task already assigned'"
+          - "Block submission if auditor not selected"
+
+  hhd_panel:
+    type: "@hhd-panel"
+    description: "Handheld device audit workflow"
+    ui_references:
+      html_file: "Flag_Panel_Final_UI.html"
+      scan_input: "boxCode[autofocus]"
+      table_columns: ["boxCode", "sku", "ean", "mfg", "qty"]
+      footer_actions: ["Start WO", "Skip WO", "Confirm Box"]
+      toast_handling: "all"
+    
+    api_integration:
+      endpoints:
+        - method: "GET"
+          path: "/audit/work-task"
+          description: "Auto fetch highest priority task"
+          headers: ["user_id", "warehouse_id"]
+          response_structure:
+            status: "string"
+            message: "string"
+            data: "WorkTask"
+        
+        - method: "POST"
+          path: "/audit/work-task/start"
+          description: "Start work task - validate rack state"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            workTaskId: "number"
+          validation:
+            - "Rack must be in correct state"
+            - "Task status must be ASSIGNED"
+        
+        - method: "POST"
+          path: "/audit/work-order/start"
+          description: "Begin scan state for work order"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            workOrderId: "number"
+            workTaskId: "number"
+        
+        - method: "POST"
+          path: "/audit/work-order/box/scan"
+          description: "Scan box and fetch details"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            boxCode: "string"
+            workOrderId: "number"
+            workTaskId: "number"
+          response_structure:
+            status: "string"
+            message: "string"
+            data:
+              boxDetails: "BoxInfo"
+              expectedQty: "number"
+              currentQty: "number"
+        
+        - method: "POST"
+          path: "/audit/work-order/box/confirm"
+          description: "Confirm box with validations"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            boxCode: "string"
+            workOrderId: "number"
+            workTaskId: "number"
+            isEanVerify: "boolean"
+            eanCode: "string"
+            qtyLeft: "number"
+            mrp: "number"
+            mfgDate: "number"
+            expiryDate: "number"
+            damagedQty: "number"
+            crate: "string"
+          validation:
+            - "All fields required"
+            - "Quantity must be valid"
+            - "EAN must match if verification enabled"
+        
+        - method: "POST"
+          path: "/audit/work-order/submit"
+          description: "Finalize work order if all boxes confirmed"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            workTaskId: "number"
+            workOrderId: "number"
+          business_logic:
+            - "Verify all boxes are COMPLETED"
+            - "Mark pending boxes as MISSING"
+            - "Generate WRONG_LOCATION flags for missing boxes"
+            - "Update work order status to COMPLETED"
+            - "Check if all work orders in task are completed"
+    
+    flows:
+      - name: "Work Task Fetch"
+        description: "Auto fetch highest priority task"
+        api_call: "GET /audit/work-task"
+        ui_actions:
+          - "Auto-load on component mount"
+          - "Display task details"
+          - "Show work orders list"
+        
+      - name: "Start Work Task"
+        description: "Validate rack state and update task state"
+        api_call: "POST /audit/work-task/start"
+        validation:
+          - "Rack status must be correct"
+          - "Task must be in ASSIGNED state"
+        error_handling:
+          - "Toast: 'Rack status mismatch'"
+        
+      - name: "Start Work Order"
+        description: "Begin scan state for specific work order"
+        api_call: "POST /audit/work-order/start"
+        ui_actions:
+          - "Enable scan input"
+          - "Focus on boxCode input"
+        
+      - name: "Scan Box"
+        description: "Scan box and fetch details"
+        api_call: "POST /audit/work-order/box/scan"
+        ui_actions:
+          - "Auto-focus scan input"
+          - "Display box details in table"
+          - "Show expected vs actual quantities"
+        error_handling:
+          - "Toast: 'Invalid Box Code'"
+        
+      - name: "Confirm Box"
+        description: "Confirm box with validations"
+        api_call: "POST /audit/work-order/box/confirm"
+        validation:
+          - "All details required"
+          - "Quantity validation"
+          - "EAN verification if enabled"
+        error_handling:
+          - "Toast: 'All details required'"
+          - "Discrepancy flag triggered for quantity mismatch"
+        
+      - name: "Submit Work Order"
+        description: "Finalize work order"
+        api_call: "POST /audit/work-order/submit"
+        business_logic:
+          - "Check all boxes are COMPLETED"
+          - "Generate flags for missing boxes"
+          - "Update task status if all WOs completed"
+
+  flag_panel:
+    type: "@flagging-panel"
+    resource: "audit/flags"
+    description: "Flag resolution panel for auditors"
+    ui_references:
+      html_file: "Flag_Panel_Final_UI.html"
+      tabs: ["LOST", "DAMAGED", "EXCESS", "WRONG_SKU", "BATCH_DISCREPANCY"]
+      modal_form: "true"
+      actions: ["Reject[Modal]", "Resolve[Modal]"]
+      toast_handling: "all"
+    
+    api_integration:
+      endpoints:
+        - method: "GET"
+          path: "/audit/flags"
+          description: "Fetch all pending flags"
+          headers: ["user_id", "warehouse_id"]
+          query_params:
+            - name: "type"
+              type: "string"
+              required: false
+              options: ["LOST", "DAMAGED_TO_CRATE", "OVERAGE_EXPECTED_SKU_TO_CRATE", "BATCH_DISCREPANCY", "WRONG_SKU_PRODUCT"]
+            - name: "status"
+              type: "string"
+              required: false
+              options: ["PENDING", "RESOLVED", "REJECTED"]
+            - name: "crateId"
+              type: "string"
+              required: false
+            - name: "timeStart"
+              type: "number"
+              required: false
+              description: "Unix timestamp in seconds"
+            - name: "timeEnd"
+              type: "number"
+              required: false
+              description: "Unix timestamp in seconds"
+          response_structure:
+            status: "string"
+            message: "string"
+            data:
+              flags: "Array<Flag>"
+          business_rules:
+            - "Exclude RESOLVED/REJECTED flags older than 2 days"
+            - "Only return flags from user's warehouse"
+        
+        - method: "POST"
+          path: "/audit/flags/reject"
+          description: "Reject flag with reason"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            flagId: "number"
+            reason: "string"
+          validation:
+            - "Reason is mandatory"
+          business_logic:
+            - "Update flag status to REJECTED"
+            - "Store reason in audit_flag_logs"
+        
+        - method: "POST"
+          path: "/audit/flags/resolve"
+          description: "Resolve flag based on type"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            flagId: "number"
+            reasons: "Array<Reason>"
+            batchResolution: "BatchResolution"
+            quantity: "number"
+            product_sku: "string"
+            batch_id: "string"
+          flag_type_handling:
+            LOST:
+              description: "Create Lost GON"
+              api_calls:
+                - "createGon (gon_type: 'lost')"
+                - "submitGonItcV2"
+              business_logic:
+                - "Sequential call to createGon and submitGonItcV2"
+                - "Update flag status to RESOLVED"
+            
+            DAMAGED_TO_CRATE:
+              description: "Process damaged items"
+              api_calls:
+                - "createGon (gon_type: 'DAMAGED')"
+                - "submitGonItcV2"
+              business_logic:
+                - "Sum quantities from reasons array"
+                - "Create GON for total damaged quantity"
+                - "Create work order for remaining quantity if mismatch"
+            
+            OVERAGE_EXPECTED_SKU_TO_CRATE:
+              description: "Handle excess items"
+              body_fields:
+                quantity: "number"
+              business_logic:
+                - "Process excess quantity"
+                - "Check for recovery GON"
+            
+            BATCH_DISCREPANCY:
+              description: "Resolve batch discrepancies"
+              body_fields:
+                batchResolution:
+                  type: "string"
+                  options: ["CREATE", "UPDATE"]
+                  newBatchId: "string"
+                  mfgDate: "number"
+                  expiryDate: "number"
+                  remarks: "string"
+              business_logic:
+                - "Create new batch or update existing"
+                - "Handle MRP/date discrepancies"
+            
+            WRONG_SKU_PRODUCT:
+              description: "Resolve SKU mismatches"
+              body_fields:
+                product_sku: "string"
+                batch_id: "string"
+              business_logic:
+                - "Update product SKU"
+                - "Handle batch ID if applicable"
+        
+        - method: "POST"
+          path: "/audit/recovery-gon"
+          description: "Fetch quantity for GON recovery"
+          headers: ["user_id", "warehouse_id", "Content-Type: application/json"]
+          body:
+            flag_id: "number"
+          response_structure:
+            httpStatus: "number"
+            status: "string"
+            message: "string"
+            data:
+              quantity: "number"
+    
+    flows:
+      - name: "Fetch Pending Flags"
+        description: "Load all pending flags with filters"
+        api_call: "GET /audit/flags"
+        ui_actions:
+          - "Load flags on component mount"
+          - "Apply filters by type, status, crateId, date"
+          - "Display in tabbed interface"
+        
+      - name: "Filter Flags"
+        description: "Filter flags by various criteria"
+        ui_actions:
+          - "Filter by flag type (LOST, DAMAGED, EXCESS, etc.)"
+          - "Filter by status (PENDING, RESOLVED, REJECTED)"
+          - "Filter by crate ID or work task ID"
+          - "Filter by date range"
+        
+      - name: "Reject Flag"
+        description: "Reject flag with mandatory reason"
+        api_call: "POST /audit/flags/reject"
+        ui_actions:
+          - "Click 'Reject' button"
+          - "Open rejection modal"
+          - "Enter mandatory reason"
+          - "Submit rejection"
+        validation:
+          - "Reason is mandatory"
+        error_handling:
+          - "Block submission without reason"
+          - "Toast: 'Please provide a reason for rejection'"
+        
+      - name: "Resolve LOST Flag"
+        description: "Create Lost GON for lost items"
+        api_call: "POST /audit/flags/resolve"
+        ui_actions:
+          - "Click 'Resolve' for LOST flag"
+          - "Show confirmation modal"
+          - "Display flag details"
+          - "Approve to create Lost GON"
+        business_logic:
+          - "Sequential call to createGon and submitGonItcV2"
+          - "GON type: 'lost'"
+        
+      - name: "Resolve DAMAGED Flag"
+        description: "Process damaged items with reason breakdown"
+        api_call: "POST /audit/flags/resolve"
+        ui_actions:
+          - "Click 'Resolve' for DAMAGED flag"
+          - "Open damaged resolution modal"
+          - "Enter total quantity to write-off"
+          - "Add damage reason breakdown"
+          - "Validate quantities match"
+        validation:
+          - "Total quantity must match sum of reason quantities"
+          - "All damage reasons must have quantities"
+        error_handling:
+          - "Toast: 'All details required'"
+          - "Block approval if quantities don't match"
+        
+      - name: "Resolve EXCESS Flag"
+        description: "Handle excess items with recovery check"
+        api_call: "POST /audit/flags/resolve"
+        ui_actions:
+          - "Click 'Resolve' for EXCESS flag"
+          - "Show initial view with recovery check"
+          - "Check for matching Lost GON"
+          - "Show recovery or fresh inward options"
+        business_logic:
+          - "Check for recovery GON"
+          - "Recover matching quantities"
+          - "Initiate fresh inward for remaining"
+        
+      - name: "Resolve BATCH_DISCREPANCY Flag"
+        description: "Handle batch discrepancies"
+        api_call: "POST /audit/flags/resolve"
+        ui_actions:
+          - "Click 'Resolve' for BATCH_DISCREPANCY flag"
+          - "Show batch resolution modal"
+          - "Display expected vs found batch details"
+          - "Create new batch or update existing"
+        validation:
+          - "Batch ID is mandatory for new batch"
+          - "Manufacturing and expiry dates required"
+        error_handling:
+          - "Toast: 'Batch ID to Create is mandatory'"
+          - "Toast: 'Manufacturing and Expiry dates are mandatory'"
+        
+      - name: "Resolve WRONG_SKU Flag"
+        description: "Resolve SKU mismatches"
+        api_call: "POST /audit/flags/resolve"
+        ui_actions:
+          - "Click 'Resolve' for WRONG_SKU flag"
+          - "Show SKU mismatch modal"
+          - "Enter actual SKU"
+          - "Enter batch ID if applicable"
+        validation:
+          - "Actual SKU is mandatory"
+        error_handling:
+          - "Toast: 'Actual SKU is mandatory'"
+
+# 🔧 Technical Implementation Details
+technical_requirements:
+  loading_states:
+    - "Add loading states during API transitions"
+    - "Disable primary buttons on submission"
+    - "Show loading spinners for async operations"
+  
+  validation:
+    - "Validate all fields in confirm modals"
+    - "Client-side validation before API calls"
+    - "Server-side validation for all inputs"
+  
+  error_handling:
+    - "Standardized toast messages via packages/ui/Toast"
+    - "Retry mechanisms for failed API calls"
+    - "Graceful degradation for network issues"
+  
+  accessibility:
+    - "Keyboard-accessible close for all modals"
+    - "Screen reader support for all components"
+    - "Focus management for modal dialogs"
+  
+  performance:
+    - "Lazy loading for large data sets"
+    - "Debounced search inputs"
+    - "Optimistic updates for better UX"
+
+# 📝 Cursor Generation Prompts
+cursor_prompts:
+  assignment_panel:
+    prompt: |
+      Create a @datatable-panel for audit/work-tasks with modal showing workOrders. 
+      Allow assignment via dropdown and toast on submit.
+      Include status badges and work order count display.
+    
+  hhd_panel:
+    prompt: |
+      Generate an @hhd-panel to allow scanning boxCode, confirm details, and submit work order. 
+      Use autofocus on scan input.
+      Include table for box details and footer actions.
+    
+  flag_panel:
+    prompt: |
+      Create a @flagging-panel with @tabs for LOST, EXCESS, DAMAGED, WRONG_SKU, BATCH_DISCREPANCY 
+      using @resource audit/flags.
+      Include modals with @modal-form for each resolution flow.
+      Add rejection modal with mandatory reason field.
+
+# 🔗 API Endpoint Summary
+api_summary:
+  assignment_panel:
+    - "GET /audit/work-tasks - Fetch tasks list"
+    - "POST /audit/assign-task - Assign to auditor"
+  
+  hhd_panel:
+    - "GET /audit/work-task - Fetch priority task"
+    - "POST /audit/work-task/start - Start task"
+    - "POST /audit/work-order/start - Start work order"
+    - "POST /audit/work-order/box/scan - Scan box"
+    - "POST /audit/work-order/box/confirm - Confirm box"
+    - "POST /audit/work-order/submit - Submit work order"
+  
+  flag_panel:
+    - "GET /audit/flags - Fetch pending flags"
+    - "POST /audit/flags/reject - Reject flag"
+    - "POST /audit/flags/resolve - Resolve flag"
+    - "POST /audit/recovery-gon - Fetch recovery quantity"
+
+# 🎯 Business Flows Mapping
+business_flows:
+  b2c_flow:
+    description: "Business to Consumer audit workflow"
+    components: ["assignment_panel", "hhd_panel"]
+    sequence:
+      1. "Supervisor assigns audit tasks"
+      2. "Auditor receives task on HHD"
+      3. "Auditor scans and confirms boxes"
+      4. "System generates flags for discrepancies"
+      5. "Supervisor resolves flags in flag panel"
+  
+  sto_flow:
+    description: "Stock Transfer Order workflow"
+    components: ["assignment_panel", "hhd_panel", "flag_panel"]
+    sequence:
+      1. "Create STO audit tasks"
+      2. "Assign to auditors"
+      3. "Audit STO items"
+      4. "Handle transfer discrepancies"
+      5. "Finalize STO audit"
+  
+  discrepancy_flow:
+    description: "Discrepancy resolution workflow"
+    components: ["flag_panel"]
+    flag_types:
+      - "LOST - Create Lost GON"
+      - "DAMAGED - Process damage with reasons"
+      - "EXCESS - Handle excess with recovery"
+      - "BATCH_DISCREPANCY - Update/create batches"
+      - "WRONG_SKU - Correct SKU information"
+  
+  finalization_flow:
+    description: "Audit finalization workflow"
+    components: ["hhd_panel", "flag_panel"]
+    sequence:
+      1. "Complete all work orders"
+      2. "Resolve all pending flags"
+      3. "Submit final audit report"
+      4. "Update inventory records"
+
+# 📊 Data Models
+data_models:
+  WorkTask:
+    id: "number"
+    status: "string"
+    assignedToName: "string"
+    workOrders: "Array<WorkOrder>"
+    createdAt: "number"
+  
+  WorkOrder:
+    workOrderId: "number"
+    rackName: "string"
+    status: "string"
+  
+  Flag:
+    id: "number"
+    type: "string"
+    identifier: "string"
+    sku: "string"
+    details: "object"
+    createdAt: "number"
+    status: "string"
+  
+  Auditor:
+    id: "number"
+    name: "string"
+
+# 🚀 Deployment Configuration
+deployment:
+  environment: "production"
+  api_base_url: "https://sandbox.purplle.com/wms/api/v1/dc-be"
+  required_headers:
+    - "user_id"
+    - "warehouse_id"
+  error_handling:
+    - "Network timeout: 30 seconds"
+    - "Retry attempts: 3"
+    - "Backoff strategy: exponential" 
