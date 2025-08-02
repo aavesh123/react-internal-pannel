@@ -1,5 +1,5 @@
 // Flag Types
-export type FlagType = 'LOST' | 'DAMAGED' | 'EXCESS' | 'BATCH_DISCREPANCY' | 'WRONG_SKU';
+export type FlagType = 'LOST' | 'DAMAGED' | 'EXCESS' | 'BATCH_DISCREPANCY' | 'WRONG_SKU' | 'ALL';
 export type FlagStatus = 'PENDING' | 'RESOLVED' | 'REJECTED';
 
 // Main Flag Interface

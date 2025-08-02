@@ -88,7 +88,8 @@ const FlaggingPanel: React.FC = () => {
       'DAMAGED': 'damaged',
       'EXCESS': 'excess',
       'BATCH_DISCREPANCY': 'batch-discrepancy',
-      'WRONG_SKU': 'sku-mismatch'
+      'WRONG_SKU': 'sku-mismatch',
+      'ALL': ''
     };
     setModalVisible(modalMap[flag.type]);
   };
@@ -142,13 +143,13 @@ const FlaggingPanel: React.FC = () => {
   };
 
   // Handle recovery GON check
-  const handleCheckRecoveryGon = async () => {
-    if (!selectedFlag) return;
+  const handleCheckRecoveryGon = async (): Promise<number> => {
+    if (!selectedFlag) return 0;
 
     try {
       const response = await checkRecoveryGon(selectedFlag.id);
       if (response.status === 'success') {
-        return response.data.quantity;
+        return response.data.quantity || 0;
       } else {
         showToast('error', response.message || 'Failed to check recovery GON');
         return 0;
@@ -251,7 +252,8 @@ const FlaggingPanel: React.FC = () => {
       'DAMAGED': 'orange',
       'EXCESS': 'blue',
       'BATCH_DISCREPANCY': 'purple',
-      'WRONG_SKU': 'volcano'
+      'WRONG_SKU': 'volcano',
+      'ALL': 'default'
     };
     return colorMap[type] || 'default';
   };
