@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Typography, Space, Button, Form, Input, Alert } from 'antd';
 import { RejectModalProps } from '../types';
+import { formatFlagId } from '@/utils/dummyData';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -58,7 +59,7 @@ const RejectModal: React.FC<RejectModalProps> = ({
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Paragraph>
-          You are about to reject Flag ID: <Text strong>{flag.id}</Text>.
+          You are about to reject Flag ID: <Text strong>{formatFlagId(flag.id, flag.type)}</Text>.
         </Paragraph>
 
         <Form

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Typography, Space, Button, Descriptions } from 'antd';
 import { ModalProps } from '../types';
+import { formatFlagId } from '@/utils/dummyData';
 
 const { Text, Paragraph } = Typography;
 
@@ -33,7 +34,7 @@ const LostModal: React.FC<ModalProps> = ({
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Descriptions column={1} size="small">
           <Descriptions.Item label="Flag ID">
-            <Text strong>{flag.id}</Text>
+            <Text strong>{formatFlagId(flag.id, flag.type)}</Text>
           </Descriptions.Item>
           <Descriptions.Item label="SKU">
             <Text strong>{flag.sku}</Text>

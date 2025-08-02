@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Typography, Space, Button, Descriptions, Form, Input, Alert, Divider } from 'antd';
 import { ModalProps } from '../types';
+import { formatFlagId } from '@/utils/dummyData';
 
 const { Text, Paragraph } = Typography;
 
@@ -63,7 +64,7 @@ const SkuMismatchModal: React.FC<ModalProps> = ({
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Descriptions column={1} size="small">
           <Descriptions.Item label="Flag ID">
-            <Text strong>{flag.id}</Text>
+            <Text strong>{formatFlagId(flag.id, flag.type)}</Text>
           </Descriptions.Item>
           <Descriptions.Item label="Current SKU (Found)">
             <Text strong>{flag.details.foundSku || flag.sku}</Text>

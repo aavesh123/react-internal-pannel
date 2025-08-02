@@ -1,14 +1,9 @@
 import { Flag, FlagType, FlagStatus } from '@/pages/flagging-panel/types';
 
-// Helper function to convert date string to Unix timestamp
-const dateToTimestamp = (dateStr: string): number => {
-  return Math.floor(new Date(dateStr).getTime() / 1000);
-};
-
-// Dummy data extracted from Flag_Panel_Final_UI copy.html
+// Dummy data extracted from Flag_Panel_Final_UI copy.html - exact format as in HTML
 export const dummyFlagsData: Flag[] = [
   {
-    id: 1,
+    id: 1, // Will be converted to string format in the component
     type: "LOST",
     identifier: "WT-001",
     sku: "S1-XYZ123",
@@ -16,7 +11,7 @@ export const dummyFlagsData: Flag[] = [
       qty: 2,
       boxId: "B1"
     },
-    createdAt: dateToTimestamp("2025-09-06"),
+    createdAt: Math.floor(new Date("2025-09-06").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -29,7 +24,7 @@ export const dummyFlagsData: Flag[] = [
       isRecoveryCandidate: true,
       recoveryQty: 7
     },
-    createdAt: dateToTimestamp("2025-09-06"),
+    createdAt: Math.floor(new Date("2025-09-06").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -41,7 +36,7 @@ export const dummyFlagsData: Flag[] = [
       qty: 5,
       isRecoveryCandidate: false
     },
-    createdAt: dateToTimestamp("2025-09-07"),
+    createdAt: Math.floor(new Date("2025-09-07").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -52,7 +47,7 @@ export const dummyFlagsData: Flag[] = [
     details: {
       qty: 3
     },
-    createdAt: dateToTimestamp("2025-09-08"),
+    createdAt: Math.floor(new Date("2025-09-08").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -64,7 +59,7 @@ export const dummyFlagsData: Flag[] = [
       expected: "B-OLD",
       found: "B-NEW"
     },
-    createdAt: dateToTimestamp("2025-09-09"),
+    createdAt: Math.floor(new Date("2025-09-09").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -76,7 +71,7 @@ export const dummyFlagsData: Flag[] = [
       foundSku: "SKU-WRONG",
       foundQty: 5
     },
-    createdAt: dateToTimestamp("2025-09-12"),
+    createdAt: Math.floor(new Date("2025-09-12").getTime() / 1000),
     status: "PENDING"
   },
   {
@@ -87,7 +82,7 @@ export const dummyFlagsData: Flag[] = [
     details: {
       qty: 1
     },
-    createdAt: dateToTimestamp("2025-09-11"),
+    createdAt: Math.floor(new Date("2025-09-11").getTime() / 1000),
     status: "REJECTED",
     rejectionReason: "Auditor error. Recounted and found correct."
   }
@@ -101,6 +96,8 @@ export const filterDummyFlags = (
     status?: string;
     crateId?: string;
     date?: string;
+    timeStart?: number;
+    timeEnd?: number;
   }
 ): Flag[] => {
   return flags.filter(flag => {
@@ -125,6 +122,15 @@ export const filterDummyFlags = (
       if (flagDate !== filters.date) {
         return false;
       }
+    }
+    
+    // Filter by time range
+    if (filters.timeStart && flag.createdAt < filters.timeStart) {
+      return false;
+    }
+    
+    if (filters.timeEnd && flag.createdAt > filters.timeEnd) {
+      return false;
     }
     
     return true;
@@ -170,6 +176,21 @@ export const mockApiResponses = {
     },
     message: 'Recovery GON found'
   }
+};
+
+// Helper to convert numeric ID to string format like in HTML
+export const formatFlagId = (id: number, type: FlagType): string => {
+  const typeMap: Record<FlagType, string> = {
+    'LOST': 'L',
+    'EXCESS': 'E', 
+    'DAMAGED': 'D',
+    'BATCH_DISCREPANCY': 'B',
+    'WRONG_SKU': 'S',
+    'ALL': 'X'
+  };
+  
+  const typeCode = typeMap[type] || 'X';
+  return `FLAG-${typeCode}${id.toString().padStart(2, '0')}`;
 };
 
 // Helper to simulate API delay

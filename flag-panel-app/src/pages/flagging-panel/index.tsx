@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons';
 import { useApi } from '@/hooks/useApi';
 import { showToast } from '@/utils/toast';
+import { formatFlagId } from '@/utils/dummyData';
 import { Flag, FlagType, FlagStatus, FilterState } from './types';
 import { formatFlagDetails, formatDate } from './utils';
 import FilterBar from './components/FilterBar';
@@ -172,6 +173,9 @@ const FlaggingPanel: React.FC = () => {
       dataIndex: 'id',
       key: 'id',
       width: 120,
+      render: (id: number, record: Flag) => {
+        return formatFlagId(id, record.type);
+      },
     },
     {
       title: 'Type',
