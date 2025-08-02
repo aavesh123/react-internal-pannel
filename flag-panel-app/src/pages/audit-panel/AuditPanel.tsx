@@ -70,10 +70,11 @@ export const AuditPanel: React.FC = () => {
     fetchFlags();
   }, []);
 
-  const fetchFlags = async () => {
+  const fetchFlags = async (customFilters?: FilterState) => {
     setLoading(true);
     try {
-      const response = await auditApiService.fetchFlags(filters);
+      const filtersToUse = customFilters || filters;
+      const response = await auditApiService.fetchFlags(filtersToUse);
       setFlags(response.flags);
     } catch (error) {
       message.error('Failed to fetch flags');
@@ -87,12 +88,15 @@ export const AuditPanel: React.FC = () => {
   };
 
   const handleResetFilters = () => {
-    setFilters({
+    const clearedFilters = {
       flagType: '',
       status: '',
       identifier: '',
       date: '',
-    });
+    };
+    setFilters(clearedFilters);
+    // Fetch flags with cleared filters immediately
+    fetchFlags(clearedFilters);
   };
 
   const openModal = (type: string, flag: AuditFlag) => {

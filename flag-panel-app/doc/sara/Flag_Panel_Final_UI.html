@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Flags Panel - v7.0 (SWAT Status Removed)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --purplle-primary: #5D107F; --purplle-secondary: #7B2CBF; --purplle-accent-light: #f5f3f7;
+            --text-primary: #212529; --text-secondary: #495057; --text-light: #6c757d;
+            --background-main: #f9f8fc; --background-card: #ffffff; --border-color: #dee2e6;
+            --success-color: #28a745; --warning-color: #ffc107; --error-color: #dc3545;
+            --font-family: 'Inter', sans-serif; --border-radius-md: 8px; --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        body { font-family: var(--font-family); margin: 0; padding: 24px; background-color: var(--background-main); }
+        .container { max-width: 1600px; margin: auto; background-color: var(--background-card); padding: 20px 30px; border-radius: var(--border-radius-md); box-shadow: var(--shadow-md); }
+        h1 { text-align: center; color: var(--purplle-primary); margin-bottom: 30px; font-weight: 600; }
+        .filters { margin-bottom: 30px; padding: 20px; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+        .filters .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filters label { font-weight: 500; font-size: 0.8em; color: var(--text-secondary); }
+        .filters select, .filters input, .filters .button { padding: 10px 14px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9em; }
+        .filters .button { background-color: var(--purplle-secondary); color: white; cursor: pointer; align-self: flex-end; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875em; }
+        th, td { padding: 12px 15px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--purplle-primary); color: white; font-weight: 600; }
+        tr:hover { background-color: var(--purplle-accent-light); }
+        .action-button { border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .status-tag { padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; font-size: 0.8em; text-transform: uppercase; }
+        .status-PENDING { color: #856404; background-color: #fff3cd; }
+        .status-RESOLVED { color: #155724; background-color: #d4edda; }
+        .status-REJECTED { color: #721c24; background-color: #f8d7da; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; overflow-y: auto; padding: 20px 0; }
+        .modal-content { background-color: var(--background-card); padding: 25px 30px; border-radius: var(--border-radius-md); width: 90%; max-width: 650px; }
+        .modal-header { font-size: 1.5em; font-weight: 600; margin-bottom: 20px; color: var(--purplle-primary); }
+        .modal-body .form-group { margin-bottom: 18px; }
+        .modal-body label { display: block; font-weight: 500; margin-bottom: 8px; }
+        .modal-body input, .modal-body select, .modal-body textarea { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
+        .modal-footer { margin-top: 30px; display: flex; justify-content: flex-end; gap: 10px; }
+        .button-approve { background-color: var(--success-color); color: white; }
+        .button-reject { background-color: var(--error-color); color: white; }
+        .button-cancel { background-color: #6c757d; color: white; }
+        .dynamic-view { display: none; }
+        .info-panel { padding: 15px; border-left: 5px solid; margin: 15px 0; }
+        .info-panel.success { background-color: #d4edda; border-color: var(--success-color); }
+        .info-panel.fail { background-color: #f8d7da; border-color: var(--error-color); }
+        .info-panel ul { margin-top: 10px; padding-left: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Audit Discrepancy Flags</h1>
+    <div class="filters">
+        <div class="filter-group"><label for="filter-flag-type">Flag Type</label><select id="filter-flag-type"><option value="">All Types</option><option value="EXCESS">Excess</option><option value="LOST">Lost</option><option value="DAMAGED">Damaged</option><option value="BATCH_DISCREPANCY">Batch Discrepancy</option><option value="SKU_MISMATCH">SKU Mismatch</option></select></div>
+        <div class="filter-group"><label for="filter-status">Flag Status</label><select id="filter-status"><option value="">All Statuses</option><option value="PENDING">Pending</option><option value="RESOLVED">Resolved</option><option value="REJECTED">Rejected</option></select></div>
+        <div class="filter-group"><label for="filter-id">Crate ID / WT ID</label><input type="text" id="filter-id" placeholder="Enter ID..."></div>
+        <div class="filter-group"><label for="filter-date">Date</label><input type="date" id="filter-date"></div>
+        <button class="button" onclick="applyFilters()">Filter</button>
+    </div>
+    <table>
+        <thead><tr><th>Flag ID</th><th>Type</th><th>Identifier</th><th>SKU</th><th>Details</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="flags-table-body"></tbody>
+    </table>
+</div>
+
+<!-- ALL MODALS -->
+<!-- Resolution Modals -->
+<div id="lost-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header">Resolve Lost Item</div><div class="modal-body"></div><div class="modal-footer"><button class="action-button button-reject" onclick="openRejectModal()">Reject Flag</button><button class="action-button button-approve" onclick="submitResolution('LOST')">Approve & Create 'Lost' GON</button></div></div></div>
+<div id="excess-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header">Resolve Excess Item</div><div class="modal-body"></div><div class="modal-footer"><button class="action-button button-reject" onclick="openRejectModal()">Reject Flag</button><button id="excess-approve-button" class="action-button button-approve" style="display:none;" onclick="submitResolution('EXCESS')">Approve</button></div></div></div>
+<div id="damaged-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header">Resolve Damaged Item</div><div class="modal-body"></div><div class="modal-footer"><button class="action-button button-reject" onclick="openRejectModal()">Reject Flag</button><button id="damaged-approve-btn" class="action-button button-approve" onclick="submitResolution('DAMAGED')" disabled>Approve & Process GON</button></div></div></div>
+<div id="batch-discrepancy-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header">Resolve Batch Discrepancy</div><div class="modal-body"></div><div class="modal-footer"><button class="action-button button-reject" onclick="openRejectModal()">Reject Flag</button><button class="action-button button-approve" onclick="submitBatchResolution()">Submit</button></div></div></div>
+<div id="sku-mismatch-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header">Resolve SKU Mismatch</div><div class="modal-body"></div><div class="modal-footer"><button class="action-button button-reject" onclick="openRejectModal()">Reject Flag</button><button class="action-button button-approve" onclick="submitSkuUpdate()">Approve SKU Updation</button></div></div></div>
+
+<!-- Rejection Confirmation Modal -->
+<div id="reject-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">Confirm Flag Rejection</div>
+        <div class="modal-body">
+            <p>You are about to reject Flag ID: <strong id="reject-flag-id-span"></strong>.</p>
+            <div class="form-group">
+                <label for="reject-reason">Reason for Rejection (Mandatory):</label>
+                <textarea id="reject-reason" rows="3" placeholder="e.g., Auditor counting error, issue resolved on floor."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="action-button button-cancel" onclick="closeModal()">Cancel</button>
+            <button class="action-button button-reject" onclick="submitFlagRejection()">Confirm Rejection</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentFlagIdForModal = null;
+    const mockFlagsData = [
+        { id: "FLAG-L01", type: "LOST", identifier: "WT-001", sku: "S1-XYZ123", details: { qty: 2, boxId: "B1" }, date: "2025-09-06", status: "PENDING" },
+        { id: "FLAG-E01", type: "EXCESS", identifier: "CRATE-E-01", sku: "S9-DEF789", details: { qty: 10, isRecoveryCandidate: true, recoveryQty: 7 }, date: "2025-09-06", status: "PENDING" },
+        { id: "FLAG-E02", type: "EXCESS", identifier: "CRATE-E-02", sku: "S10-GHI456", details: { qty: 5, isRecoveryCandidate: false }, date: "2025-09-07", status: "PENDING" },
+        { id: "FLAG-D01", type: "DAMAGED", identifier: "CRATE-D-01", sku: "S5-MNO111", details: { qty: 3 }, date: "2025-09-08", status: "PENDING" },
+        { id: "FLAG-B01", type: "BATCH_DISCREPANCY", identifier: "WT-002", sku: "S2-ABC456", details: { expected: "B-OLD", found: "B-NEW" }, date: "2025-09-09", status: "PENDING" },
+        { id: "FLAG-S01", type: "SKU_MISMATCH", identifier: "CRATE-S-01", sku: "SKU-WRONG", details: { foundSku: "SKU-WRONG", foundQty: 5 }, date: "2025-09-12", status: "PENDING" },
+        { id: "FLAG-X01", type: "EXCESS", identifier: "CRATE-E-03", sku: "S12-FINAL", details: { qty: 1 }, date: "2025-09-11", status: "REJECTED", rejectionReason: "Auditor error. Recounted and found correct." },
+    ];
+    
+    // --- HTML Injection for Modals ---
+    document.getElementById('lost-modal').getElementsByClassName('modal-body')[0].innerHTML = `<p><strong>Flag ID:</strong> <span class="modal-flag-id"></span></p><p><strong>SKU:</strong> <span class="modal-sku"></span></p><p><strong>Quantity Lost:</strong> <strong class="modal-qty"></strong> units from Box <strong class="modal-boxid"></strong></p><p>Approving will create a "Lost" Goods Outward Note (GON) to adjust inventory.</p>`;
+    document.getElementById('excess-modal').getElementsByClassName('modal-body')[0].innerHTML = `<p><strong>Flag ID:</strong> <span class="modal-flag-id"></span></p><p><strong>Found SKU:</strong> <span class="modal-sku"></span></p><p><strong>Excess Quantity:</strong> <strong class="modal-qty"></strong> units in Crate <strong class="modal-crateid"></strong></p><hr><div id="excess-initial-view" class="dynamic-view"><p>Check for a matching "Lost" GON to recover this stock.</p><button class="action-button" onclick="handleCheckGon()">Check for Recovery GON</button></div><div id="excess-recovery-view" class="dynamic-view"><div class="info-panel success"><h4>Recovery Found!</h4><p id="excess-recovery-text"></p></div></div><div id="excess-inward-view" class="dynamic-view"><div class="info-panel fail"><h4>No Recovery Found!</h4><p>Please inward this stock as a fresh inward.</p></div></div>`;
+    document.getElementById('damaged-modal').getElementsByClassName('modal-body')[0].innerHTML = `<p><strong>Flag ID:</strong> <span class="modal-flag-id"></span></p><p><strong>SKU:</strong> <span class="modal-sku"></span> in Crate <strong class="modal-crateid"></strong></p><div class="form-group"><label for="damaged-qty-total">Total Quantity to Write-Off:</label><input type="number" id="damaged-qty-total" oninput="validateDamageQuantities()"></div><hr><h4>Damage Reason Breakdown</h4><table style="width:100%;"><tbody id="damage-reasons-tbody"></tbody></table><button onclick="addDamageReasonRow()">+ Add Reason</button><div id="damage-validation-status" style="font-weight:600;margin-top:10px;"></div>`;
+    document.getElementById('batch-discrepancy-modal').getElementsByClassName('modal-body')[0].innerHTML = `<p><strong>Flag ID:</strong> <span class="modal-flag-id"></span></p><p><strong>SKU:</strong> <span class="modal-sku"></span></p><p><strong>Expected:</strong> <span id="modal-batch-expected"></span> | <strong>Found:</strong> <span id="modal-batch-found"></span></p><hr><h4>New Batch Creation</h4><div class="form-group"><label for="batch-id-to-create">Batch ID to Create:</label><input type="text" id="batch-id-to-create" placeholder="Confirm or edit batch ID to create..."></div><div class="form-group"><label for="new-batch-mfg">Manufacturing Date (dd-mm-yyyy):</label><input type="date" id="new-batch-mfg"></div><div class="form-group"><label for="new-batch-exp">Expiry Date (dd-mm-yyyy):</label><input type="date" id="new-batch-exp"></div>`;
+    document.getElementById('sku-mismatch-modal').getElementsByClassName('modal-body')[0].innerHTML = `<p><strong>Flag ID:</strong> <span class="modal-flag-id"></span></p><p><strong>Current SKU (Found):</strong> <span class="modal-sku"></span></p><hr><div class="form-group"><label for="actual-sku">Actual SKU (Mandatory):</label><input type="text" id="actual-sku" placeholder="Enter the correct SKU"></div><div class="form-group"><label for="actual-batch-id">Actual Batch ID (Optional):</label><input type="text" id="actual-batch-id" placeholder="Enter batch ID if applicable"></div>`;
+
+    // --- Core JS Functions ---
+    function formatDetails(flag) {
+        if (flag.type === 'SKU_MISMATCH') { return `Found Qty: ${flag.details.foundQty || 'N/A'}`; }
+        if (flag.type === 'BATCH_DISCREPANCY') { return `Expected: ${flag.details.expected}, Found: ${flag.details.found}`; }
+        return `Qty: ${flag.details.qty || 'N/A'}`;
+    }
+    
+    function renderTable(flags) {
+        const tbody = document.getElementById('flags-table-body');
+        tbody.innerHTML = '';
+        flags.forEach(flag => {
+            const row = tbody.insertRow();
+            let actionHtml = 'Processed';
+            if (flag.status === 'PENDING') {
+                actionHtml = `<button class="action-button" onclick="openResolutionModal('${flag.id}')">Resolve</button>`;
+            } else if (flag.status === 'REJECTED') {
+                actionHtml = `Reason: ${flag.rejectionReason || 'N/A'}`;
+            }
+            row.innerHTML = `<td>${flag.id}</td><td>${flag.type.replace(/_/g, ' ')}</td><td>${flag.identifier}</td><td>${flag.sku}</td><td>${formatDetails(flag)}</td><td>${flag.date}</td><td><span class="status-tag status-${flag.status}">${flag.status.replace(/_/g, ' ')}</span></td><td>${actionHtml}</td>`;
+        });
+    }
+
+    function applyFilters() {
+        const type = document.getElementById('filter-flag-type').value;
+        const status = document.getElementById('filter-status').value;
+        const id = document.getElementById('filter-id').value.trim().toUpperCase();
+        const date = document.getElementById('filter-date').value;
+        let data = mockFlagsData.filter(f => (!type || f.type === type) && (!status || f.status === status) && (!id || (f.identifier && f.identifier.toUpperCase().includes(id))) && (!date || f.date === date));
+        renderTable(data);
+    }
+
+    function openModal(modalId) { const modal = document.getElementById(modalId); modal.style.display = 'flex'; }
+    function closeModal() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
+    function openRejectModal() {
+        document.getElementById('reject-flag-id-span').textContent = currentFlagIdForModal;
+        document.getElementById('reject-reason').value = '';
+        openModal('reject-modal');
+    }
+    
+    function submitFlagRejection() {
+        const reason = document.getElementById('reject-reason').value;
+        if (!reason.trim()) { alert("Please provide a reason for rejection."); return; }
+        const flag = mockFlagsData.find(f => f.id === currentFlagIdForModal);
+        flag.status = "REJECTED";
+        flag.rejectionReason = reason;
+        alert(`Flag ${flag.id} has been rejected.`);
+        closeModal();
+        applyFilters();
+    }
+    
+    // --- Specific Modal Setup and Submission Logic ---
+    function openResolutionModal(flagId) {
+        currentFlagIdForModal = flagId;
+        const flag = mockFlagsData.find(f => f.id === flagId);
+        const modalId = `${flag.type.toLowerCase().replace(/_/g, '-')}-modal`;
+        const modal = document.getElementById(modalId);
+        if(!modal) return alert(`Modal for ${flag.type} not found.`);
+        
+        modal.querySelectorAll('.modal-flag-id').forEach(el => el.textContent = flag.id);
+        modal.querySelectorAll('.modal-sku').forEach(el => el.textContent = flag.sku);
+        modal.querySelectorAll('.modal-qty').forEach(el => el.textContent = flag.details.qty);
+        modal.querySelectorAll('.modal-boxid').forEach(el => el.textContent = flag.details.boxId);
+        modal.querySelectorAll('.modal-crateid').forEach(el => el.textContent = flag.identifier);
+
+        switch(flag.type) {
+            case 'BATCH_DISCREPANCY':
+                document.getElementById('modal-batch-expected').textContent = flag.details.expected;
+                document.getElementById('modal-batch-found').textContent = flag.details.found;
+                document.getElementById('batch-id-to-create').value = flag.details.found; // Pre-fill with found batch, user can edit
+                document.getElementById('new-batch-mfg').value = '';
+                document.getElementById('new-batch-exp').value = '';
+                break;
+            case 'SKU_MISMATCH':
+                modal.querySelector('.modal-sku').textContent = flag.details.foundSku;
+                document.getElementById('actual-sku').value = '';
+                document.getElementById('actual-batch-id').value = '';
+                break;
+            case 'EXCESS':
+                ['excess-initial-view', 'excess-recovery-view', 'excess-inward-view', 'excess-approve-button'].forEach(id => document.getElementById(id).style.display = 'none');
+                document.getElementById('excess-initial-view').style.display = 'block';
+                break;
+            case 'DAMAGED':
+                document.getElementById('damaged-qty-total').value = flag.details.qty;
+                document.getElementById('damage-reasons-tbody').innerHTML = '';
+                addDamageReasonRow(); validateDamageQuantities();
+                break;
+        }
+        openModal(modalId);
+    }
+
+    function submitBatchResolution() {
+        const flag = mockFlagsData.find(f => f.id === currentFlagIdForModal);
+        const batchIdToCreate = document.getElementById('batch-id-to-create').value.trim();
+        const mfgDate = document.getElementById('new-batch-mfg').value;
+        const expDate = document.getElementById('new-batch-exp').value;
+
+        if (!batchIdToCreate) { alert("Batch ID to Create is mandatory."); return; }
+        if (!mfgDate || !expDate) { alert("Manufacturing and Expiry dates are mandatory for new batch creation."); return; }
+        
+        flag.status = "RESOLVED";
+        alert(`API request to create new batch '${batchIdToCreate}' sent with MFG: ${mfgDate} and EXP: ${expDate}.`);
+        closeModal(); applyFilters();
+    }
+    
+    function submitSkuUpdate() {
+        const flag = mockFlagsData.find(f => f.id === currentFlagIdForModal);
+        const actualSku = document.getElementById('actual-sku').value.trim();
+        if (!actualSku) { alert("Actual SKU is mandatory."); return; }
+        flag.status = "RESOLVED";
+        alert(`SKU for identifier ${flag.identifier} will be updated from ${flag.sku} to ${actualSku}.`);
+        closeModal(); applyFilters();
+    }
+    
+    function submitResolution(type) {
+        const flag = mockFlagsData.find(f => f.id === currentFlagIdForModal);
+        flag.status = "RESOLVED";
+        alert(`Approved: ${type} process for ${flag.sku} will be initiated.`);
+        closeModal(); applyFilters();
+    }
+    
+    function handleCheckGon() {
+        const flag = mockFlagsData.find(f => f.id === currentFlagIdForModal);
+        document.getElementById('excess-initial-view').style.display = 'none';
+        document.getElementById('excess-approve-button').style.display = 'inline-block';
+        if (flag.details.isRecoveryCandidate) {
+            const totalQty = flag.details.qty;
+            const recoveryQty = flag.details.recoveryQty || 0;
+            const freshInwardQty = totalQty - recoveryQty;
+            let recoveryText = `This stock matches a "Lost" GON. Approving will:<ul><li>Recover <strong>${recoveryQty}</strong> qty.</li>`;
+            if (freshInwardQty > 0) { recoveryText += `<li>Initiate a fresh inward for the remaining <strong>${freshInwardQty}</strong> qty.</li>`; }
+            recoveryText += `</ul>`;
+            document.getElementById('excess-recovery-text').innerHTML = recoveryText;
+            document.getElementById('excess-recovery-view').style.display = 'block';
+            document.getElementById('excess-inward-view').style.display = 'none';
+            document.getElementById('excess-approve-button').textContent = "Approve Recovery & Inward";
+        } else {
+            document.getElementById('excess-recovery-view').style.display = 'none';
+            document.getElementById('excess-inward-view').style.display = 'block';
+            document.getElementById('excess-approve-button').textContent = "Initiate Fresh Inward";
+        }
+    }
+
+    function addDamageReasonRow() {const t=document.getElementById('damage-reasons-tbody'),r=t.insertRow();r.innerHTML=`<td><select onchange="validateDamageQuantities()"><option value="">Reason...</option><option value="NEAR_EXPIRY">Near Expiry</option><option value="PHYSICAL_DAMAGE">Physical Damage</option></select></td><td><input type="number" min="1" placeholder="Qty" oninput="validateDamageQuantities()"></td><td><button onclick="this.parentElement.parentElement.remove();validateDamageQuantities();">X</button></td>`;}
+    function validateDamageQuantities() {const t=parseInt(document.getElementById('damaged-qty-total').value)||0,s=document.getElementById('damage-validation-status'),a=document.getElementById('damaged-approve-btn');let e=0;document.querySelectorAll('#damage-reasons-tbody input[type="number"]').forEach(i=>{e+=parseInt(i.value)||0});s.textContent=`Accounted for: ${e} of ${t}`;if(t>0&&t===e){s.style.color='var(--success-color)';a.disabled=false}else{s.style.color='var(--error-color)';a.disabled=true}}
+
+    document.addEventListener('DOMContentLoaded', () => { renderTable(mockFlagsData); });
+</script>
+
+</body>
+</html>
