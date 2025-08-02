@@ -1,0 +1,204 @@
+@flagging-panel:
+  description: DC Audit Flag Resolution Panel — React + Refine + Ant Design
+  framework: react
+  language: typescript
+  ui_library: antd
+  routing: refine
+  api_base_url: https://sandbox.purplle.com/wms/api/v1/dc-be
+  headers:
+    user_id: string
+    warehouse_id: string
+    Content-Type: application/json
+
+  pages:
+    - name: FlaggingPanel
+      path: /flagging-panel
+      layout: true
+      component: pages/flagging-panel/index.tsx
+
+  files:
+    - path: src/pages/flagging-panel/index.tsx
+      description: Main page with tabs, filters, table
+    - path: src/pages/flagging-panel/types.ts
+      description: Types for Flag, Filters, Modals
+    - path: src/pages/flagging-panel/utils.ts
+      description: Formatters and helpers
+    - path: src/pages/flagging-panel/components/FilterBar.tsx
+    - path: src/pages/flagging-panel/components/FlagTable.tsx
+    - path: src/pages/flagging-panel/modals/LostModal.tsx
+    - path: src/pages/flagging-panel/modals/DamagedModal.tsx
+    - path: src/pages/flagging-panel/modals/ExcessModal.tsx
+    - path: src/pages/flagging-panel/modals/BatchDiscrepancyModal.tsx
+    - path: src/pages/flagging-panel/modals/SkuMismatchModal.tsx
+    - path: src/pages/flagging-panel/modals/RejectModal.tsx
+
+  state:
+    - currentTab
+    - currentFlagId
+    - flags
+    - loading
+    - error
+    - selectedFlag
+    - filters
+
+  views:
+    - id: tab-view
+      type: tabs
+      tabs: [LOST, DAMAGED, EXCESS, BATCH_DISCREPANCY, WRONG_SKU]
+      bind: currentTab
+
+    - id: filter-bar
+      type: custom
+      component: FilterBar
+      inputs:
+        - id: type
+          label: Flag Type
+          type: select
+          options: [EXCESS, LOST, DAMAGED, BATCH_DISCREPANCY, WRONG_SKU]
+        - id: status
+          label: Status
+          type: select
+          options: [PENDING, RESOLVED, REJECTED]
+        - id: crateId
+          label: Crate ID / WT ID
+          type: text
+        - id: date
+          label: Date
+          type: date
+        - button[text='Filter']
+
+    - id: flag-table
+      type: custom
+      component: FlagTable
+      data: flags
+      onRowAction:
+        action: openFlagModal
+        condition: status == 'PENDING'
+
+  tasks:
+    - id: fetchFlags
+      trigger: filter-bar > button[text='Filter']
+      api:
+        method: GET
+        url: /audit/flags
+        query:
+          type: $inputs.type
+          status: $inputs.status
+          crateId: $inputs.crateId
+          timeStart: $inputs.date
+      headers: [user_id, warehouse_id]
+      onSuccess: set(flags)
+
+    - id: rejectFlag
+      trigger: RejectModal > Confirm
+      api:
+        method: POST
+        url: /audit/flags/reject
+        body:
+          flagId: $state.currentFlagId
+          reason: $inputs.reason
+      validate:
+        - field: reason
+          rule: required
+          message: Rejection reason required
+      toast: success
+
+    - id: resolveLost
+      trigger: LostModal > Submit
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+      toast: success
+
+    - id: resolveExcess
+      trigger: ExcessModal > Submit
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          quantity: $inputs.quantity
+      toast: success
+
+    - id: checkRecoveryGon
+      trigger: ExcessModal > CheckRecovery
+      api:
+        method: POST
+        url: /audit/recovery-gon
+        body:
+          flag_id: $state.currentFlagId
+      toast: success
+
+    - id: resolveDamaged
+      trigger: DamagedModal > Submit
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          reasons: $inputs.reasons
+      validate:
+        - rule: sumEquals
+          args:
+            totalField: totalQty
+          message: "Sum of reasons must match total qty"
+      toast: success
+
+    - id: resolveBatchDiscrepancy
+      trigger: BatchDiscrepancyModal > Submit
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          batchResolution:
+            type: CREATE
+            newBatchId: $inputs.batchId
+            mfgDate: $inputs.mfgDate
+            expiryDate: $inputs.expDate
+            remarks: $inputs.remarks
+      validate:
+        - fields: [batchId, mfgDate, expDate]
+          rule: required
+          message: "All batch fields are required"
+      toast: success
+
+    - id: resolveSkuMismatch
+      trigger: SkuMismatchModal > Submit
+      api:
+        method: POST
+        url: /audit/flags/resolve
+        body:
+          flagId: $state.currentFlagId
+          product_sku: $inputs.actualSku
+          batch_id: $inputs.actualBatch
+      validate:
+        - field: actualSku
+          rule: required
+          message: "Actual SKU is required"
+      toast: success
+
+  validationRules:
+    - name: sumEquals
+      args:
+        totalField: totalQty
+      function: |
+        (reasons, args, context) => {
+          const sum = reasons.reduce((acc, r) => acc + (parseInt(r.quantity) || 0), 0);
+          return sum === parseInt(context.inputs[args.totalField]);
+        }
+
+  modals:
+    - LostModal
+    - DamagedModal
+    - ExcessModal
+    - BatchDiscrepancyModal
+    - SkuMismatchModal
+    - RejectModal
+
+  toasts:
+    - success: Operation completed successfully
+    - error: Operation failed. Please try again.
+    - warning: Please check your input and try again.

@@ -1,0 +1,154 @@
+/* Global Styles for DC Audit Panel */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9f8fc;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Ant Design overrides */
+.ant-layout-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.ant-menu-dark {
+  background: #5D107F !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #7B2CBF !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background-color: #7B2CBF !important;
+}
+
+/* Custom theme colors */
+:root {
+  --purplle-primary: #5D107F;
+  --purplle-secondary: #7B2CBF;
+  --purplle-accent-light: #f5f3f7;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-light: #6c757d;
+  --background-main: #f9f8fc;
+  --background-card: #ffffff;
+  --border-color: #dee2e6;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --error-color: #dc3545;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    position: fixed;
+    height: 100vh;
+    z-index: 999;
+  }
+  
+  .ant-layout-content {
+    margin-left: 0;
+  }
+}
+
+/* Loading states */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* Card styles */
+.custom-card {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-color);
+}
+
+/* Button styles */
+.primary-button {
+  background-color: var(--purplle-primary);
+  border-color: var(--purplle-primary);
+}
+
+.primary-button:hover {
+  background-color: var(--purplle-secondary);
+  border-color: var(--purplle-secondary);
+}
+
+/* Table styles */
+.custom-table .ant-table-thead > tr > th {
+  background-color: var(--purplle-primary);
+  color: white;
+  font-weight: 600;
+}
+
+/* Modal styles */
+.custom-modal .ant-modal-header {
+  background-color: var(--purplle-accent-light);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.custom-modal .ant-modal-title {
+  color: var(--purplle-primary);
+  font-weight: 600;
+}
+
+/* Form styles */
+.custom-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Status tags */
+.status-tag-pending {
+  color: #856404;
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+.status-tag-resolved {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.status-tag-rejected {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+} 
