@@ -1,0 +1,122 @@
+@hhd-panel:
+  description: HHD Audit Panel — React + Refine + Ant Design App
+  framework: react
+  language: typescript
+  ui_library: antd
+  routing: refine
+  api_base_url: https://sandbox.purplle.com/wms/api/v1/dc-be
+  headers:
+    user_id: string
+    warehouse_id: string
+    Content-Type: application/json
+
+  pages:
+    - name: HhdPanel
+      path: /hhd-panel
+      layout: true
+      component: pages/hhd-panel/index.tsx
+
+  files:
+    - path: src/pages/hhd-panel/index.tsx
+    - path: src/pages/hhd-panel/types.ts
+    - path: src/pages/hhd-panel/components/ScanInput.tsx
+    - path: src/pages/hhd-panel/components/BoxDetails.tsx
+    - path: src/pages/hhd-panel/components/TaskInfoHeader.tsx
+    - path: src/pages/hhd-panel/components/CompletionActions.tsx
+
+  state:
+    - currentWT
+    - currentRack
+    - currentBox
+    - currentStep
+    - boxDetails
+    - error
+    - loading
+
+  views:
+    - id: screen-flow
+      type: wizard
+      steps: [start-task, scan-rack, scan-box, item-details, complete-rack]
+      bind: currentStep
+
+    - id: box-input
+      type: input
+      bind: currentBox
+      props:
+        autoFocus: true
+        placeholder: Scan Boxcode
+
+    - id: item-detail-view
+      type: custom
+      component: BoxDetails
+
+  tasks:
+    - id: getCurrentTask
+      api:
+        method: GET
+        url: /audit/work-task
+      headers: [user_id, warehouse_id]
+      onSuccess: set(currentWT)
+
+    - id: startTask
+      trigger: button[text='Start Audit']
+      api:
+        method: POST
+        url: /audit/work-task/start
+        body:
+          work_task_id: $state.currentWT.workTaskId
+      onSuccess: set(currentRack)
+
+    - id: startWorkOrder
+      trigger: scan-rack > Confirm
+      api:
+        method: POST
+        url: /audit/work-order/start
+        body:
+          workTaskId: $state.currentWT.workTaskId
+          workOrderId: $state.currentRack.workOrderId
+      onSuccess: set(boxDetails)
+
+    - id: scanBox
+      trigger: scan-box > Confirm
+      api:
+        method: POST
+        url: /audit/work-order/box/scan
+        body:
+          workTaskId: $state.currentWT.workTaskId
+          workOrderId: $state.currentRack.workOrderId
+          boxCode: $state.currentBox
+      onSuccess: set(boxDetails)
+
+    - id: confirmBox
+      trigger: item-details > Submit
+      api:
+        method: POST
+        url: /audit/work-order/box/confirm
+        body:
+          boxCode: $state.currentBox
+          workTaskId: $state.currentWT.workTaskId
+          workOrderId: $state.currentRack.workOrderId
+          eanCode: $inputs.ean
+          qtyLeft: $inputs.qty
+          mrp: $inputs.mrp
+          mfgDate: $inputs.mfg
+          expiryDate: $inputs.exp
+          damagedQty: $inputs.damagedQty
+          crate: $inputs.crate
+      toast: success
+
+    - id: submitWorkOrder
+      trigger: complete-rack > Confirm
+      api:
+        method: POST
+        url: /audit/work-order/submit
+        body:
+          workTaskId: $state.currentWT.workTaskId
+          workOrderId: $state.currentRack.workOrderId
+      toast: success
+
+  toasts:
+    - success: Operation completed successfully
+    - error: Operation failed. Please try again.
+    - warning: Please check your input and try again.

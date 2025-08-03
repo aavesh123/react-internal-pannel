@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>HHD Audit Module - v2.4 (Flagging Workflow)</title>
+    <style>
+        :root { /* Theme variables */
+            --purplle-primary: #5D107F; --purplle-secondary: #7B2CBF; --purplle-accent-light: #F3E5F5;
+            --text-primary: #212529; --text-light-emphasis: #4A4A4A; --text-placeholder: #6c757d;
+            --background-main: #FAF9FC; --background-card: #ffffff; --border-color: #E0E0E0;
+            --border-focus-color: var(--purplle-secondary); --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+            --icon-size: 20px; --font-family: 'Inter', Arial, sans-serif;
+            --success-color: #28a745; --warning-color: #FFA000; --info-color: #0288D1;
+            --error-color: #D32F2F;
+        }
+        body { font-family: var(--font-family); margin: 0; padding: 0; background-color: var(--background-main); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; color: var(--text-primary); padding-top: 5px;}
+        .hhd-container { width: 320px; max-height: 95vh; background-color: var(--background-card); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden;}
+        .hhd-top-bar { background-color: var(--purplle-primary); color: white; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em;}
+        .home-icon { font-size: 1.5em; cursor: pointer; padding: 5px; line-height: 0.8;}
+        .hhd-screen { padding: 12px; box-sizing: border-box; display: none; flex-direction: column; flex-grow: 1; overflow-y: auto;}
+        .hhd-screen.active { display: flex; }
+        .header { font-size: 1.1em; font-weight: 600; text-align: center; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; margin-bottom: 10px; color: var(--purplle-primary);}
+        .instruction { font-size: 0.9em; text-align: center; margin-bottom: 10px; color: #555; }
+        .input-field { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.95em; box-sizing: border-box; }
+        .input-mandatory { border-color: var(--error-color); }
+        .task-details-view, .item-details-view { border: 1px solid #e8e8e8; background-color: #fcfcff; padding: 10px; margin-bottom: 10px; border-radius: 6px; font-size: 0.85em; }
+        .task-details-view p, .item-details-view p { margin: 5px 0; line-height: 1.4;}
+        .task-details-view strong, .item-details-view strong { display: inline-block; min-width: 95px; color: #444; font-weight:500;}
+        .details-flex-container { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+        .details-text-section { flex-grow: 1; }
+        .item-image { width: 70px; height: 70px; object-fit: contain; display: block; border: 1px solid #eee; border-radius: 4px; cursor: pointer; flex-shrink: 0; background-color: #f8f9fa; }
+        .form-group { margin-bottom: 8px; }
+        .form-group label { display: block; font-size: 0.8em; color: var(--text-light-emphasis); margin-bottom: 4px; font-weight:500; }
+        .button-group { margin-top: auto; padding-top:10px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #f0f0f0;}
+        .button { background-color: var(--purplle-secondary); color: white; border: none; padding: 12px; text-align: center; font-size: 0.9em; border-radius: 6px; cursor: pointer; width: 100%; box-sizing: border-box; transition: background-color 0.2s ease; font-weight: 500;}
+        .button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .button-secondary { background-color: #6c757d; }
+        .button-danger { background-color: #dc3545; }
+        .ean-verification-area { display: flex; align-items: center; gap: 8px; margin-bottom: 10px;}
+        .ean-verification-area .input-field { flex-grow: 1; margin-bottom: 0; }
+        .ean-verification-area .button { width: auto; padding: 10px 15px; font-size: 0.85em; flex-shrink: 0;}
+        .verification-icon { font-size: 1.2em; font-weight: bold; vertical-align: middle; margin-left: 5px;}
+        .tick { color: var(--success-color); }
+        .cross { color: var(--error-color); }
+        .crate-scan-section { margin-top:15px; padding: 10px; border: 2px dashed var(--warning-color); background-color: #fffbeb; border-radius: 6px; display:none; }
+        .crate-scan-section .instruction { font-weight: bold; color: var(--error-color); margin-bottom: 8px; }
+        
+        /* Description specific styles */
+        .item-details-view .description-container { cursor: pointer; }
+        .item-details-view .description-container p { margin: 0; }
+        .description-full { 
+            color: #555; margin-top: 4px;
+            padding-left: 10px; border-left: 2px solid #eee; 
+            line-height: 1.35;
+            max-height: 2.7em; /* 1.35em * 2 lines */
+            overflow: hidden;
+            position: relative;
+            transition: max-height 0.3s ease-out;
+        }
+        .description-full:not(.expanded)::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10px; /* align with padding */
+            right: 0;
+            height: 1.35em;
+            background: linear-gradient(to bottom, transparent, var(--background-card));
+        }
+        .description-full.expanded {
+            max-height: 150px; /* Allow expansion */
+        }
+
+        /* Image Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { position: relative; background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 90%; max-height: 90%; }
+        .modal-content img { max-width: 100%; max-height: 75vh; transition: transform 0.2s ease-in-out; }
+        .modal-close { position: absolute; top: -10px; right: -10px; background: white; color: black; border-radius: 50%; width: 30px; height: 30px; line-height: 30px; font-size: 24px; cursor: pointer; border: 1px solid #ccc; }
+        .zoom-controls { margin-top: 10px; }
+        .zoom-controls button { font-size: 1.5em; padding: 0 10px; margin: 0 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="hhd-container">
+    <div class="hhd-top-bar">
+        <span class="home-icon" onclick="goHomeToWtStart()">🏠</span>
+        <span class="wt-info" id="hhd-wt-info">WT: WT-001</span>
+    </div>
+
+    <!-- Screen 0, 1, 2 -->
+    <div id="screen-wt-start" class="hhd-screen active"><div class="header">Audit Task Details</div><div class="task-details-view"><p><strong>Work Task ID:</strong> <span id="start-wt-id"></span></p><p><strong>Auditor ID:</strong> <span id="start-auditor-id"></span></p><p><strong>Assigned Racks:</strong> <span id="start-wt-racks"></span></p></div><div id="start-audit-error" class="error-message" style="display:none;"></div><div class="button-group"><button class="button" onclick="handleStartAudit()">Start Audit</button></div></div>
+    <div id="screen-scan-rack" class="hhd-screen"><div class="header">Scan Rack</div><div class="instruction">Proceed to Audit Rack: <strong id="target-rack-id">R1</strong></div><div class="form-group"><label for="rack-scan-input-field">Scan Rack Barcode:</label><input type="text" class="input-field" placeholder="Scan Rack..." id="rack-scan-input-field"></div><div id="rack-scan-error" class="error-message" style="display:none;"></div><div class="button-group"><button class="button button-danger" onclick="showScreen('screen-skip-rack-confirm')">Skip This Rack</button><button class="button" onclick="handleRackScan()">Confirm Rack</button></div></div>
+    <div id="screen-skip-rack-confirm" class="hhd-screen"><div class="header">Skip Rack <span id="skip-rack-id-confirm">R1</span>?</div><div class="instruction">All items for this rack will be flagged as 'UNAUDITED' for supervisor review.</div><div class="button-group"><button class="button button-danger" onclick="simulateSkipRack()">Yes, Skip Rack</button><button class="button button-secondary" onclick="goToPreviousScreen()">Cancel</button></div></div>
+    <div id="screen-scan-box" class="hhd-screen"><div class="header">Rack <span id="current-rack-scan-box">R1</span> Confirmed</div><div class="form-group"><label for="box-scan-input-field">Scan Next Boxcode in Rack <span id="current-rack-for-box-scan">R1</span>:</label><input type="text" class="input-field" placeholder="Scan Boxcode..." id="box-scan-input-field"></div><div id="box-scan-error" class="error-message" style="display:none;"></div><div class="button-group"><button class="button" id="rack-audit-complete-btn" onclick="checkAndShowRackCompletionScreen(true)">Rack Audit Complete</button><button class="button" onclick="simulateBoxScanSuccess()">Confirm Boxcode</button></div></div>
+
+    <!-- Screen 3: Item Details & Quantity/Attributes Input -->
+    <div id="screen-item-details" class="hhd-screen">
+        <div class="header">Boxcode <span id="current-box-id-details">B1</span></div>
+        
+        <div class="details-flex-container">
+            <div class="details-text-section">
+                <div class="item-details-view">
+                    <p><strong>SKU:</strong> <span id="expected-sku"></span></p>
+                    <div class="description-container" onclick="toggleDescription(this)">
+                         <p><strong>Description</strong></p>
+                         <div class="description-full" id="expected-desc"></div>
+                    </div>
+                    <p><strong>EAN:</strong> <span id="expected-ean"></span><span id="ean-verify-status-icon" class="verification-icon"></span></p>
+                    <p><strong>Batch:</strong> <span id="expected-batch"></span></p>
+                    <!-- Hidden fields as per request -->
+                    <p style="display: none;"><strong>Expected MRP:</strong> ₹<span id="expected-mrp"></span></p>
+                    <p style="display: none;"><strong>Expected Mfg:</strong> <span id="expected-mfg-view"></span></p>
+                    <p style="display: none;"><strong>Expected Exp:</strong> <span id="expected-exp-view"></span></p>
+                    <p style="display: none;"><strong>System Qty:</strong> <span id="expected-qty"></span></p>
+                </div>
+            </div>
+            <img src="https://via.placeholder.com/70x70.png?text=SKU" alt="SKU Image" class="item-image" id="sku-image-placeholder" onclick="openImageModal(this.src)">
+        </div>
+
+        <div class="ean-verification-area">
+            <input type="text" class="input-field" placeholder="Scan EAN..." id="ean-scan-input">
+            <button class="button button-secondary" onclick="verifyEAN()">Verify</button>
+        </div>
+        
+        <fieldset id="item-data-fieldset">
+            <div class="form-group"><label for="counted-qty-input">Physical Count Qty:</label><input type="number" class="input-field" id="counted-qty-input"></div>
+            <div class="form-group"><label for="damaged-qty-input">Damaged Qty (of counted):</label><input type="number" class="input-field" id="damaged-qty-input" value="0"></div>
+            <hr style="margin: 8px 0; border-color: #f0f0f0;">
+            <div class="form-group"><label for="counted-mrp-input">Actual MRP (₹):</label><input type="number" step="0.01" class="input-field" id="counted-mrp-input"></div>
+            <div class="form-group"><label for="counted-mfg-input">Actual Mfg Date:</label><input type="date" class="input-field" id="counted-mfg-input"></div>
+            <div class="form-group"><label for="counted-exp-input">Actual Exp Date:</label><input type="date" class="input-field" id="counted-exp-input"></div>
+        </fieldset>
+
+        <div id="crate-scan-section" class="crate-scan-section">
+            <p class="instruction" id="crate-scan-reason"></p>
+            <div class="form-group" id="crate-excess-qty-group" style="display: none;">
+                <label for="crate-excess-qty-input">Confirm Excess Qty to Crate:</label>
+                <input type="number" class="input-field" id="crate-excess-qty-input">
+            </div>
+            <div class="form-group" id="crate-damaged-qty-group" style="display: none;">
+                <label for="crate-damaged-qty-input">Confirm Damaged Qty to Crate:</label>
+                <input type="number" class="input-field" id="crate-damaged-qty-input">
+            </div>
+            <div class="form-group"><label for="crate-scan-input" id="crate-scan-label">Scan Crate ID:</label><input type="text" class="input-field" id="crate-scan-input" placeholder="Scan Required Crate..."></div>
+        </div>
+        <div class="button-group"><button class="button" id="submit-item-data-button" onclick="handleSubmitItemData()">Submit</button></div>
+    </div>
+    
+    <!-- Rack Completion Screen -->
+    <div id="screen-rack-completion-confirm" class="hhd-screen"><div class="header">Complete Audit for Rack <span id="rack-to-complete-id">R1</span>?</div><div id="rack-completion-info-message" class="instruction"></div><div class="button-group"><button class="button" onclick="simulateConfirmCompleteRack()">Yes, Complete Rack</button><button class="button button-secondary" onclick="showScreen('screen-scan-box')">No, Continue Auditing</button></div></div>
+
+</div> <!-- End of hhd-container -->
+
+<!-- Image Modal -->
+<div id="image-modal" class="modal-overlay" style="display:none;">
+  <span class="modal-close" onclick="closeImageModal()">&times;</span>
+  <div class="modal-content">
+    <img id="modal-image-content" src="" alt="Enlarged SKU Image" style="transform: scale(1);">
+    <div class="zoom-controls">
+      <button onclick="zoomImage(1.2)">+</button>
+      <button onclick="zoomImage(1/1.2)">-</button>
+    </div>
+  </div>
+</div>
+
+<script>
+    let currentScreenId = 'screen-wt-start', previousScreenId = 'screen-wt-start';
+    let mockWTData = { "WT-001": { id: "WT-001", auditorId: "Alex (A-1138)", racks: ["R1", "R3"], currentRackIndex: 0, status: "ASSIGNED", WOs: { "R1": [{box: "B1", sku: "S1-XYZ123", desc: "Paracetamol 500mg Film-Coated Tablets, 15 per strip. This is an effective pain reliever and fever reducer suitable for adults and children over 12.", ean:"1234567890123", batch: "BATCH-X", mrp: 150.00, mfg: "2024-01-15", exp: "2026-01-31", expectedQty: 12, eanScanRequired: true, auditedStatus: null}, {box: "B2", sku: "S2-ABC456", desc: "Aspirin 75mg Gastro-Resistant Tablets, 14 per strip", ean:"9876543210987", batch: "BATCH-Y", mrp: 210.50, mfg: "2024-02-10", exp: "2025-08-31", expectedQty: 10, eanScanRequired: false, auditedStatus: null}], "R3": [{box: "B3", sku: "S3-DEF456", desc: "Vitamin C Chewable 1000mg Orange Flavour", ean:"1112223334445", batch: "BATCH-Z", mrp: 120.00, mfg: "2023-12-01", exp: "2024-05-31", expectedQty: 5, eanScanRequired: false, auditedStatus: null}] } } };
+    let currentWTId = "WT-001", currentRackId = "", currentWOInRackIndex = 0; 
+    let rackStatus = { "R1": "FREE", "R3": "FREE", "R2": "PICKING_IN_PROGRESS"};
+    let eanVerificationState = 'pending';
+
+    // --- UTILITY & NAVIGATION FUNCTIONS ---
+    function formatDateForDisplay(d) { if (!d) return "N/A"; const [y, m, day] = d.split('-'); return `${day}-${m}-${y}`; }
+    function formatDateForInput(d){ return d || ""; }
+    function showScreen(id){document.querySelectorAll('.hhd-screen').forEach(s=>s.classList.remove('active'));previousScreenId=currentScreenId;currentScreenId=id;document.getElementById(id).classList.add('active')}
+    function goToPreviousScreen(){showScreen(previousScreenId)}
+    function initializeWtStartScreen(id){currentWTId=id;const wt=mockWTData[id];wt.currentRackIndex=0;document.getElementById('start-wt-id').textContent=wt.id;document.getElementById('start-auditor-id').textContent=wt.auditorId;document.getElementById('start-wt-racks').textContent=wt.racks.join(', ');document.getElementById('hhd-wt-info').textContent=`WT: ${wt.id}`}
+    function goHomeToWtStart(){if(confirm("Exit audit? Progress will be lost.")){resetAuditSession()}}
+    function resetAuditSession(){initializeWtStartScreen(currentWTId);showScreen('screen-wt-start')}
+
+    // --- SCREEN LOGIC FUNCTIONS ---
+    function handleStartAudit(){const wt=mockWTData[currentWTId];currentRackId=wt.racks[wt.currentRackIndex];const e=document.getElementById('start-audit-error');e.style.display='none';if(rackStatus[currentRackId]==='PICKING_IN_PROGRESS'){e.textContent=`Rack ${currentRackId} is blocked.`;e.style.display='block';return}wt.status='IN_PROGRESS';rackStatus[currentRackId]='AUDITING_IN_PROGRESS';document.getElementById('target-rack-id').textContent=currentRackId;showScreen('screen-scan-rack')}
+    
+    function handleRackScan(){
+        const e=document.getElementById('rack-scan-input-field').value.trim().toUpperCase(),t=document.getElementById('rack-scan-error');t.style.display='none';if(e!==currentRackId.toUpperCase()){t.textContent=`Wrong Rack! Expected ${currentRackId}, Scanned ${e}.`;t.style.display='block';return}
+        document.getElementById('current-rack-scan-box').textContent=e;
+        document.getElementById('current-rack-for-box-scan').textContent=e;
+        currentWOInRackIndex=0;
+        document.getElementById('rack-audit-complete-btn').disabled = true; // Disable until first box is audited
+        showScreen('screen-scan-box');
+    }
+
+    function simulateSkipRack(){alert(`Rack ${currentRackId} skipped.`);proceedToNextRackOrCompleteWT()}
+    
+    function simulateBoxScanSuccess(){
+        const scannedBoxCode=document.getElementById('box-scan-input-field').value.trim().toUpperCase();
+        const errorEl=document.getElementById('box-scan-error');
+        errorEl.style.display='none';
+        const wosInRack=mockWTData[currentWTId].WOs[currentRackId]||[];
+        const woIndex=wosInRack.findIndex(wo=>wo.box.toUpperCase()===scannedBoxCode && !wo.auditedStatus);
+        
+        if(woIndex === -1){
+            const rackOfScannedBox = Object.keys(mockWTData[currentWTId].WOs).find(rack => mockWTData[currentWTId].WOs[rack].some(wo => wo.box.toUpperCase() === scannedBoxCode));
+            if (rackOfScannedBox && rackOfScannedBox !== currentRackId) {
+                errorEl.textContent = `Error: Boxcode ${scannedBoxCode} belongs to a different rack (${rackOfScannedBox}).`;
+            } else {
+                errorEl.textContent = `Boxcode ${scannedBoxCode} is unexpected or already audited in this rack.`;
+            }
+            errorEl.style.display='block';
+            return;
+        }
+        currentWOInRackIndex = woIndex;
+        populateItemDetailsScreen(wosInRack[currentWOInRackIndex]);
+        showScreen('screen-item-details');
+    }
+    
+    function populateItemDetailsScreen(wo) {
+        // Reset states
+        eanVerificationState = 'pending';
+        document.getElementById('ean-verify-status-icon').textContent = '';
+        document.getElementById('crate-scan-section').style.display = 'none';
+        document.getElementById('crate-excess-qty-group').style.display = 'none';
+        document.getElementById('crate-damaged-qty-group').style.display = 'none';
+        document.getElementById('submit-item-data-button').textContent = "Submit";
+        document.getElementById('item-data-fieldset').disabled = false;
+        
+        // Populate display elements
+        document.getElementById('current-box-id-details').textContent = wo.box;
+        document.getElementById('expected-sku').textContent = wo.sku;
+        document.getElementById('expected-ean').textContent = wo.ean;
+        document.getElementById('expected-batch').textContent = wo.batch;
+        
+        // Description reset and populate
+        const descEl = document.getElementById('expected-desc');
+        descEl.textContent = wo.desc;
+        descEl.classList.remove('expanded'); // Ensure it's collapsed
+
+        // Populate hidden data
+        document.getElementById('expected-mrp').textContent = wo.mrp.toFixed(2);
+        document.getElementById('expected-mfg-view').textContent = formatDateForDisplay(wo.mfg);
+        document.getElementById('expected-exp-view').textContent = formatDateForDisplay(wo.exp);
+        document.getElementById('expected-qty').textContent = wo.expectedQty;
+        
+        // Reset inputs
+        ['ean-scan-input', 'counted-qty-input', 'crate-scan-input', 'crate-excess-qty-input', 'crate-damaged-qty-input'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('ean-scan-input').classList.toggle('input-mandatory', wo.eanScanRequired === true);
+        document.getElementById('damaged-qty-input').value = "0";
+        document.getElementById('counted-mrp-input').value = wo.mrp.toFixed(2);
+        document.getElementById('counted-mfg-input').value = formatDateForInput(wo.mfg);
+        document.getElementById('counted-exp-input').value = formatDateForInput(wo.exp);
+    }
+
+    function verifyEAN() {
+        const wo = mockWTData[currentWTId].WOs[currentRackId][currentWOInRackIndex];
+        const scannedEAN = document.getElementById('ean-scan-input').value.trim();
+        const statusIcon = document.getElementById('ean-verify-status-icon');
+        if (!scannedEAN) { return; } 
+
+        const isMatch = (scannedEAN === wo.ean);
+        eanVerificationState = isMatch ? 'success' : 'fail';
+        statusIcon.textContent = isMatch ? '✓' : '✗';
+        statusIcon.className = isMatch ? 'verification-icon tick' : 'verification-icon cross';
+    }
+
+    function handleSubmitItemData() {
+        const wo = mockWTData[currentWTId].WOs[currentRackId][currentWOInRackIndex];
+        const countedQtyVal = document.getElementById('counted-qty-input').value;
+        const damagedQtyVal = document.getElementById('damaged-qty-input').value;
+
+        if (countedQtyVal === '' || isNaN(parseInt(countedQtyVal))) { alert("Please enter a valid Physical Count Quantity."); return; }
+        
+        const countedQty = parseInt(countedQtyVal);
+        const damagedQty = parseInt(damagedQtyVal) || 0;
+
+        // --- Priority 1: Handle WRONG SKU (Flag only, no crate) ---
+        if (eanVerificationState === 'fail') {
+            alert(`Wrong EAN/SKU flagged for ${countedQty} unit(s). The expected item will be marked as 'Not Found'.`);
+            wo.auditedStatus = 'NOT_FOUND_WRONG_SKU';
+            proceedToNextWOOrCompleteRack();
+            return; // Exit function after handling this specific case
+        }
+
+        // --- Priority 2: Handle Overage & Damage (Crate workflow) ---
+        const goodQty = countedQty - damagedQty;
+        const excessQty = goodQty - wo.expectedQty;
+        
+        const crateSection = document.getElementById('crate-scan-section');
+        const submitButton = document.getElementById('submit-item-data-button');
+        const crateInput = document.getElementById('crate-scan-input');
+        
+        const isCrateFlowActive = crateSection.style.display === 'block';
+
+        const needsExcessCrate = excessQty > 0;
+        const needsDamageCrate = damagedQty > 0;
+        const needsAnyCrate = needsExcessCrate || needsDamageCrate;
+
+        if (!isCrateFlowActive && needsAnyCrate) {
+            let reason = [];
+            if (needsExcessCrate) {
+                document.getElementById('crate-excess-qty-group').style.display = 'block';
+                document.getElementById('crate-excess-qty-input').value = excessQty;
+                reason.push(`Excess of ${excessQty} units found.`);
+            }
+            if (needsDamageCrate) {
+                document.getElementById('crate-damaged-qty-group').style.display = 'block';
+                document.getElementById('crate-damaged-qty-input').value = damagedQty;
+                reason.push(`${damagedQty} units are damaged.`);
+            }
+            
+            document.getElementById('crate-scan-reason').textContent = reason.join(' ') + " Confirm quantities and scan Crate.";
+            crateSection.style.display = 'block';
+            submitButton.textContent = "Confirm to Crate";
+            alert("Discrepancy detected. Please confirm details and scan the Crate.");
+            return;
+        }
+
+        if (isCrateFlowActive) {
+            if (!crateInput.value.trim()) { alert("Please scan the Crate ID."); return; }
+            let alertMsg = [];
+            if (needsExcessCrate) {
+                const confirmedExcess = parseInt(document.getElementById('crate-excess-qty-input').value);
+                if (isNaN(confirmedExcess) || confirmedExcess <= 0) { alert("Please confirm a valid excess quantity."); return; }
+                alertMsg.push(`${confirmedExcess} excess units`);
+            }
+            if (needsDamageCrate) {
+                const confirmedDamage = parseInt(document.getElementById('crate-damaged-qty-input').value);
+                if (isNaN(confirmedDamage) || confirmedDamage <= 0) { alert("Please confirm a valid damaged quantity."); return; }
+                alertMsg.push(`${confirmedDamage} damaged units`);
+            }
+            
+            alert(`${alertMsg.join(' and ')} flagged to Crate ${crateInput.value.trim()}.`);
+            wo.auditedStatus = 'COMPLETE_WITH_DISCREPANCY';
+            proceedToNextWOOrCompleteRack();
+            return;
+        }
+        
+        // --- Priority 3: NO Crate-related issues (Normal or Shortage) ---
+        if (goodQty < wo.expectedQty) {
+            alert(`Item audit submitted with a shortage of ${wo.expectedQty - goodQty} units.`);
+        } else {
+            alert("Item audit submitted successfully.");
+        }
+        wo.auditedStatus = 'COMPLETE';
+        proceedToNextWOOrCompleteRack();
+    }
+    
+    // --- Navigation & UI Helper Functions ---
+    function proceedToNextWOOrCompleteRack(){
+        document.getElementById('rack-audit-complete-btn').disabled = false; // Enable button after first successful audit
+        const wosInRack=mockWTData[currentWTId].WOs[currentRackId]||[];
+        const nextWoIndex=wosInRack.findIndex((wo,idx)=>idx>currentWOInRackIndex&&!wo.auditedStatus);
+        
+        if(nextWoIndex!==-1){
+            currentWOInRackIndex = nextWoIndex;
+            document.getElementById('box-scan-input-field').value = '';
+            document.getElementById('box-scan-input-field').focus();
+            showScreen('screen-scan-box');
+        } else {
+            showScreen('screen-scan-box');
+        }
+    }
+
+    function checkAndShowRackCompletionScreen(){
+        document.getElementById('rack-to-complete-id').textContent=currentRackId;
+        document.getElementById('rack-completion-info-message').textContent = 'Are you sure you want to complete this Rack?';
+        showScreen('screen-rack-completion-confirm');
+    }
+    
+    function simulateConfirmCompleteRack(){alert(`Rack ${currentRackId} audit marked complete.`);proceedToNextRackOrCompleteWT()}
+    
+    function proceedToNextRackOrCompleteWT(){
+        const wt=mockWTData[currentWTId];
+        rackStatus[currentRackId] = "AUDIT_COMPLETE"; // Free up rack
+        wt.currentRackIndex++;
+        if(wt.currentRackIndex<wt.racks.length){
+            currentRackId=wt.racks[wt.currentRackIndex];
+            document.getElementById('target-rack-id').textContent=currentRackId;
+            showScreen('screen-scan-rack');
+        } else {
+            alert(`Work Task ${wt.id} is complete!`);
+            resetAuditSession();
+        }
+    }
+
+    // -- UI interaction helpers --
+    function toggleDescription(containerElement) {
+        const fullDesc = containerElement.querySelector('.description-full');
+        if (!fullDesc) return;
+        fullDesc.classList.toggle('expanded');
+    }
+    
+    let currentZoom = 1;
+    function openImageModal(src) {
+        currentZoom = 1;
+        const modal = document.getElementById('image-modal');
+        const img = document.getElementById('modal-image-content');
+        img.src = src;
+        img.style.transform = 'scale(1)';
+        modal.style.display = 'flex';
+    }
+    function closeImageModal() { document.getElementById('image-modal').style.display = 'none'; }
+    function zoomImage(factor) {
+        currentZoom *= factor;
+        document.getElementById('modal-image-content').style.transform = `scale(${currentZoom})`;
+    }
+    
+    document.addEventListener('DOMContentLoaded',()=>{initializeWtStartScreen(currentWTId);});
+
+</script>
+</body>
+</html>

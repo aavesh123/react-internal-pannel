@@ -34,6 +34,7 @@ import {
 } from "./pages/categories";
 import { FlagPanelDemo } from "./pages/flag-panel-demo";
 import { AuditPanel } from "./pages/audit-panel";
+import { HhdPanel } from "./pages/hhd-panel";
 
 function App() {
   return (
@@ -82,6 +83,13 @@ function App() {
                       canDelete: false,
                     },
                   },
+                  {
+                    name: "hhd_panel",
+                    list: "/hhd-panel",
+                    meta: {
+                      canDelete: false,
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -119,6 +127,7 @@ function App() {
                     </Route>
                     <Route path="/flag-panel" element={<FlagPanelDemo />} />
                     <Route path="/audit-panel" element={<AuditPanel />} />
+                    <Route path="/hhd-panel" element={<HhdPanel />} />
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>
                 </Routes>
